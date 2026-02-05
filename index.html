@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liox Spending Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white font-sans">
+    <div id="app" class="max-w-md mx-auto p-6">
+        <div id="auth-section" class="mt-20 text-center">
+            <h1 class="text-3xl font-bold mb-6 text-blue-400">Vault Access</h1>
+            <input type="password" id="pin-input" maxlength="4" placeholder="Enter 4-digit PIN" 
+                class="w-full p-4 bg-gray-800 border border-gray-700 rounded mb-4 text-center text-2xl tracking-widest">
+            <button onclick="login()" class="w-full bg-blue-600 hover:bg-blue-500 p-3 rounded font-bold">Unlock</button>
+        </div>
+
+        <div id="dashboard" class="hidden">
+            <header class="flex justify-between items-center mb-8">
+                <h2 class="text-xl font-bold">My Trackers</h2>
+                <select id="currency-select" onchange="updateCurrency()" class="bg-gray-800 p-2 rounded">
+                    <option value="USD">USD ($)</option>
+                    <option value="INR">INR (₹)</option>
+                </select>
+            </header>
+
+            <div id="tracker-list" class="space-y-4 mb-8"></div>
+            
+            <div id="limit-msg" class="text-sm text-gray-500 mb-4 hidden">Max limit of 5 trackers reached.</div>
+            <button id="add-btn" onclick="addTracker()" class="w-full border-2 border-dashed border-gray-700 p-4 rounded text-gray-400 hover:text-white hover:border-blue-500 transition">
+                + Create New Tracker
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let sessionPin = '';
+        let currency = 'USD';
+
+        async function login() {
+            const pin = document.getElementById('pin-input').value;
+            // In a real app, verify against DB. For this demo, we use it as a session key.
+            if(pin.length === 4) {
+                sessionPin = pin;
+                document.getElementById('auth-section').classList.add('hidden');
+                document.getElementById('dashboard').classList.remove('hidden');
+                loadTrackers();
+            }
+        }
+
+        async function loadTrackers() {
+            const res = await fetch(`/api/get-trackers?pin=${sessionPin}`);
+            const data = await res.json();
+            const list = document.getElementById('tracker-list');
+            list.innerHTML = '';
+            
+            data.trackers.forEach(t => {
+                const div = document.createElement('div');
+                div.className = "bg-gray-800 p-4 rounded-lg flex justify-between items-center border-l-4 border-blue-500";
+                div.innerHTML = `
+                    <div>
+                        <div class="font-bold">${t.name}</div>
+                        <div class="text-sm text-gray-400">${currency === 'USD' ? '$' : '₹'}${t.balance}</div>
+                    </div>
+                    <button class="text-gray-500 hover:text-red-400">View</button>
+                `;
+                list.appendChild(div);
+            });
+
+            if(data.trackers.length >= 5) {
+                document.getElementById('add-btn').classList.add('hidden');
+                document.getElementById('limit-msg').classList.remove('hidden');
+            }
+        }
+
+        function updateCurrency() {
+            currency = document.getElementById('currency-select').value;
+            loadTrackers();
+        }
+
+        async function addTracker() {
+            const name = prompt("Tracker Name:");
+            if(!name) return;
+            await fetch('/api/create-tracker', {
+                method: 'POST',
+                body: JSON.stringify({ name, pin: sessionPin })
+            });
+            loadTrackers();
+        }
+    </script>
+</body>
+</html>
